@@ -12,6 +12,10 @@ sub mrna_to_gff3
   
   my @gff3 = ($mrna->{"chr"}, "xGDBvm", "mRNA", $mrna->{"l_pos"},
               $mrna->{"r_pos"}, ".", $strand, ".", "ID=$mrnaid;Parent=$geneid");
+  $gff3[8] .= $mrna->{"proteinAliases"} eq ""
+              ? "" : ";Name=". $mrna->{"proteinAliases"};
+  $gff3[8] .= $mrna->{"proteinId"} eq ""
+              ? "" : ";description=\"". $mrna->{"proteinId"} ."\"";
   print $OUT join("\t", @gff3), "\n";
   
   @gff3[2..4] = ("start_codon", $mrna->{"CDSstart"}, $mrna->{"CDSstart"} + 2);
@@ -34,8 +38,6 @@ sub mrna_to_gff3
   $exonstring =~ s/^join\((.+)\)$/$1/;
   $exonstring =~ s/&[gl]t;//g;
   my @exons = split(/\s*,\s*/, $exonstring);
-  #use Data::Dumper;
-  #print Dumper(\@exons);
 
   foreach my $exon(@exons)
   {
