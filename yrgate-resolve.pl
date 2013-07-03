@@ -8,9 +8,10 @@ sub mrna_to_gff3
   
   my $strand = $mrna->{"strand"} eq "f" ? "+" : "-";
   my $mrnaid = $mrna->{"geneId"};
+  my $geneid = $mrna->{"locusId"};
   
-  my @gff3 = ($mrna->{"gseg_gi"}, "xGDBvm", "mRNA", $mrna->{"l_pos"},
-              $mrna->{"r_pos"}, ".", $strand, ".", "ID=$mrnaid");
+  my @gff3 = ($mrna->{"chr"}, "xGDBvm", "mRNA", $mrna->{"l_pos"},
+              $mrna->{"r_pos"}, ".", $strand, ".", "ID=$mrnaid;Parent=$geneid");
   print $OUT join("\t", @gff3), "\n";
   
   @gff3[2..4] = ("start_codon", $mrna->{"CDSstart"}, $mrna->{"CDSstart"} + 2);
@@ -31,12 +32,14 @@ sub mrna_to_gff3
   my $exonstring = $mrna->{"gene_structure"};
   $exonstring =~ s/^complement\((.+)\)$/$1/;
   $exonstring =~ s/^join\((.+)\)$/$1/;
-  $exonstring =~ s/&[gl];//g;
+  $exonstring =~ s/&[gl]t;//g;
   my @exons = split(/\s*,\s*/, $exonstring);
+  #use Data::Dumper;
+  #print Dumper(\@exons);
 
   foreach my $exon(@exons)
   {
-    @gff3[3..4] = split(/../, $exon);
+    @gff3[3..4] = split(/\.{2}/, $exon);
     $gff3[2] = "exon";
     print $OUT join("\t", @gff3), "\n";
   }
@@ -55,8 +58,8 @@ sub gene_to_gff3
   {
     if($seqid eq "")
     {
-      $seqid = $mrna->{"gseg_gi"};
-      $geneid = $mrna->{"locus_id"};
+      $seqid = $mrna->{"chr"};
+      $geneid = $mrna->{"locusId"};
       $strand = "-" if($mrna->{"strand"} eq "r");
     }
     $start = $mrna->{"l_pos"} if($mrna->{"l_pos"} < $start or $start == 0);
