@@ -142,8 +142,10 @@ my %models;
 my %annot_models_to_delete;
 
 my $dbistr = sprintf("dbi:mysql:%s;host=%s", $mycnf->{"db"}, $mycnf->{"host"});
-my $db = DBI->connect($dbistr, $mycnf->{"user"}, $mycnf->{"password"}) or
-         dbi_error("error connecting to the database");
+my $db = DBI->connect($dbistr, $mycnf->{"user"}, $mycnf->{"password"}) or do
+{
+  dbi_error("error connecting to the database");
+};
 
 # Load yrGATE annotations into memory
 my $sql = "SELECT * FROM ". $mycnf->{"ygtable"};
@@ -169,32 +171,31 @@ $query->execute() or dbi_error("error executing MySQL statement");
 while(my $annot = $query->fetchrow_hashref())
 {
   my $geneid = $annot->{"locusId"};
-  my $mrnaid = $annot->{"transcriptId"};
+  my $targetmrnaid = $annot->{"transcriptId"};
+  $annot->{"gff3_gene_id"} = $geneid;
+  $annot->{"gff3_mrna_id"} = $annot->{"geneId"};
+  $annot->{"gff3_seq"} = $annot->{"chr"};
 
   my $class = $annot->{"annotation_class"};
-  if($class eq "Improve" or $class eq "Extend or Trim" or $class eq "Variant" or
-     $class eq "New Locus")
+  if($class eq "Variant" or $class eq "New Locus")
   {
-    $annot->{"gff3_gene_id"} = $geneid;
-    $annot->{"gff3_mrna_id"} = $annot->{"geneId"};
-    $annot->{"gff3_seq"} = $annot->{"chr"};
-    $models{$geneid}->{$mrnaid} = $annot;
+    $models{$geneid}->{$annot->{"gff3_mrna_id"}} = $annot;
   }
 
   if($class eq "Improve" or $class eq "Extend or Trim" or $class eq "Delete")
   {
-    if($mrnaid eq "")
+    if($targetmrnaid eq "")
     {
       printf(STDERR "delete fail: %s entry uid=%d has no transcriptId value",
              $mycnf->{"ygtable"}, $annot->{"uid"});
       exit(1);
     }
-    if( my $otherannot = $annot_models_to_delete{$mrnaid} )
+    if( my $targetannot = $annot_models_to_delete{$targetmrnaid} )
     {
       printf(STDERR "warning: transcript '%s' already being replaced by '%s'\n",
-             $mrnaid, $otherannot->{"geneId"});
+             $targetmrnaid, $targetannot->{"geneId"});
     }
-    $annot_models_to_delete{ $mrnaid } = $annot;
+    $annot_models_to_delete{ $targetmrnaid } = $annot;
   }
 }
 $query->finish();
@@ -232,9 +233,9 @@ foreach my $geneid(keys(%models))
   my @mrnas_to_print;
   foreach my $mrnaid(@mrnaids)
   {
-    if($annot_models_to_delete{$mrnaid})
+    if(my $model = $annot_models_to_delete{$mrnaid})
     {
-      delete($models{$geneid}->{$mrnaid});
+      push(@mrnas_to_print, $model) if($model->{"class"} ne "Delete");
     }
     else
     {
