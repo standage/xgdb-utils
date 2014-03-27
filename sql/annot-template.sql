@@ -1,0 +1,21 @@
+CREATE TABLE ${TABLE} (
+  uid int(10) unsigned NOT NULL AUTO_INCREMENT,
+  gseg_gi varchar(128) NOT NULL DEFAULT '',
+  geneId varchar(128) NOT NULL DEFAULT '',
+  strand enum('f','r') NOT NULL DEFAULT 'f',
+  l_pos int(10) unsigned NOT NULL DEFAULT '0',
+  r_pos int(10) unsigned NOT NULL DEFAULT '0',
+  gene_structure text NOT NULL,
+  description text,
+  note text,
+  CDSstart int(20) unsigned NOT NULL DEFAULT '0',
+  CDSstop int(20) unsigned NOT NULL DEFAULT '0',
+  transcript_id varchar(128) NOT NULL DEFAULT '',
+  locus_id varchar(128) NOT NULL DEFAULT '',
+  PRIMARY KEY (uid),
+  KEY ind1 (geneId),
+  KEY glftIND (l_pos),
+  KEY grgtIND (r_pos),
+  KEY ggaINDggi (gseg_gi),
+  FULLTEXT KEY ggaFT_DescNote (description,note)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
