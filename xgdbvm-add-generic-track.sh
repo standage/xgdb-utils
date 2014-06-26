@@ -18,17 +18,18 @@
 print_usage()
 {
   cat << EOF
-Usage: xgdbvm-add-annotation-track.sh [options] annot.gff3
+Usage: xgdbvm-add-generic-track.sh [options] annot.gff3
   Options:
     -d    MySQL database corresponding to the GDB; default is 'GDB001'
     -h    print this help message and exit
     -o    output directory to which intermediate .sql files will be written;
           default is current directory
     -p    MySQL password, if different from system default
-    -s    directory containing xGDBvm scripts; default is '/xGDBvm/scripts'
+    -s    directory containing xGDBvm scripts; default is current directory
     -t    name of the MySQL table to be created to contain these annotations;
-          default is 'annot';
+          default is 'generic';
     -u    MySQL username; default is 'gdbuser'
+    -y    data type to parse from input; default is 'region'
 EOF
 }
 
@@ -36,10 +37,11 @@ EOF
 DB="GDB001"
 OUTPATH="."
 PASSWORD="xgdb"
-SCRIPTDIR="/xGDBvm/scripts"
-TABLE="gseg_annot"
+SCRIPTDIR="."
+TABLE="generic"
 USERNAME="gdbuser"
-while getopts "d:ho:p:s:t:u:" OPTION
+DATATYPE="region"
+while getopts "d:ho:p:s:t:u:y:" OPTION
 do
   case $OPTION in
     d)
@@ -59,10 +61,13 @@ do
       SCRIPTDIR=$OPTARG
       ;;
     t)
-      TABLE=gseg_$OPTARG
+      TABLE=$OPTARG
       ;;
     u)
       USERNAME=$OPTARG
+      ;;
+    y)
+      DATATYPE=$OPTARG
       ;;
   esac
 done
@@ -79,20 +84,20 @@ if [ ! -r $GFF3 ]; then
 fi
 
 # Create data to populate MySQL table
-ANNOTSQL="$OUTPATH/${TABLE}.sql"
-$SCRIPTDIR/GFF_to_XGDB_Standard.pl -t $TABLE $GFF3 > $ANNOTSQL
+$SCRIPTDIR/xGDB_generic_pgs_from_GFF3.pl -f $DATATYPE -p $TABLE -t $TABLE -o $OUTPATH $GFF3 
 if [ ! -s $ALGNSQL ]; then
   echo -e "error: error creating file '$ANNOTSQL'"
   exit 1
 fi
 
 # Create MySQL table
-cat sql/annot-template.sql | \
-    sed -e "s/\${TABLE}/${TABLE}/g" -e "s/\$TABLE/${TABLE}/g" | \
+cat sql/generic-template.sql | \
+    sed -e "s/\${LABEL}/${TABLE}/g" -e "s/\$LABEL/${TABLE}/g" | \
     mysql -u $USERNAME -p$PASSWORD $DB
 
 # Populate table
-mysql -u $USERNAME -p$PASSWORD $DB < $ANNOTSQL
+mysql -u $USERNAME -p$PASSWORD $DB < $OUTPATH/$TABLE.main.sql
+mysql -u $USERNAME -p$PASSWORD $DB < $OUTPATH/$TABLE.gpgs.sql
 TESTSQL="SELECT COUNT(*) AS 'Annotations uploaded:' from $TABLE"
 ANNOTCOUNT=$(echo "$TESTSQL" | mysql -u $USERNAME -p$PASSWORD $DB)
 echo $ANNOTCOUNT

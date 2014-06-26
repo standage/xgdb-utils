@@ -27,28 +27,32 @@ feature track.
 
 Usage: perl $0 [options] annot.gff3
   Options:
+    f|ftype=STRING:  feature type of interest; default is 'region'
     h|help:          print this help message and exit
+    o|outdir=DIR:    directory in which to place output files; default is
+                     current directory
     p|prefix=STRING: prefix for output files; default is 'track'
-    T|table=STRING:  prefix for MySQL tables to be populated; default is
+    t|table=STRING:  prefix for MySQL tables to be populated; default is
                      'region'
-    t|type=STRING:   feature type of interest; default is 'region'
 
 ");
 }
 
+my $outdir = ".";
 my $prefix = "track";
 my $table = "region";
 my $type = "region";
 GetOptions
 (
+  "f|ftype=s"  => \$type,
   "h|help"     => sub{ print_usage(\*STDOUT); exit(0); },
+  "o|outdir=s" => \$outdir,
   "p|prefix=s" => \$prefix,
-  "T|table=s"  => \$table,
-  "t|type=s"   => \$type,
+  "t|table=s"  => \$table,
 );
 
-my $mainout = "$prefix.main.sql";
-my $gpgsout = "$prefix.gpgs.sql";
+my $mainout = "$outdir/$prefix.main.sql";
+my $gpgsout = "$outdir/$prefix.gpgs.sql";
 open(my $MAIN, ">", $mainout) or die("unable to open file $mainout");
 open(my $GPGS, ">", $gpgsout) or die("unable to open file $gpgsout");
 
@@ -77,16 +81,16 @@ while(my $line = <$GFF3>)
   if($id)
   {
     $idfeats{ $id } = [] unless($idfeats{$id});
-    push($idfeats{$id}, \@fields);
+    push(@{$idfeats{$id}}, \@fields);
     next;
   }
 
   # Handle features without IDs (cannot be multifeatures)
   $id = sprintf("%s_%lu-%lu", $fields[0], $fields[3], $fields[4]);
   printf($MAIN "INSERT INTO %s (gi, acc, description) VALUES ('%s', '%s', '%s');\n", $table, $id, $id, $fields[8]);
-  printf($GPGS "INSERT INTO %s_good_pgs (gi, gseg_gi, l_pos, r_pos, pgs, pgs_lpos, pgs_rpos) ".
+  printf($GPGS "INSERT INTO gseg_%s_good_pgs (gi, gseg_gi, l_pos, r_pos, pgs, pgs_lpos, pgs_rpos) ".
                "VALUES ('%s', '%s', %lu, %lu, '%lu %lu', 1, %lu);\n", $table, $id, $fields[0], $fields[3], $fields[4], $fields[3], $fields[4], $fields[4] - $fields[3] + 1);
-  printf($GPGS "INSERT INTO %s_good_pgs_exons (pgs_uid, num, pgs_start, pgs_stop, gseg_start, gseg_stop) ".
+  printf($GPGS "INSERT INTO gseg_%s_good_pgs_exons (pgs_uid, num, pgs_start, pgs_stop, gseg_start, gseg_stop) ".
                "VALUES (LAST_INSERT_ID(), 1, 1, %lu, %lu, %lu);\n", $table, $fields[4] - $fields[3] + 1, $fields[3], $fields[4]);
 }
 close($GFF3);
@@ -130,9 +134,9 @@ while(my($id, $entries) = each(%idfeats))
   }
 
   printf($MAIN "INSERT INTO %s (gi, acc, description) VALUES ('%s', '%s', '%s');\n", $table, $id, $id, $sorted_entries[0]->[8]);
-  printf($GPGS "INSERT INTO %s_good_pgs (gi, gseg_gi, l_pos, r_pos, pgs, pgs_lpos, pgs_rpos) ".
+  printf($GPGS "INSERT INTO gseg_%s_good_pgs (gi, gseg_gi, l_pos, r_pos, pgs, pgs_lpos, pgs_rpos) ".
                "VALUES ('%s', '%s', %lu, %lu, '%s', 1, %lu);\n", $table, $id, $sorted_entries[0]->[0], $start, $end, $structure, $cumlength);
-  printf($GPGS "INSERT INTO %s_good_pgs_exons (pgs_uid, num, pgs_start, pgs_stop, gseg_start, gseg_stop) VALUES ", $table);
+  printf($GPGS "INSERT INTO gseg_%s_good_pgs_exons (pgs_uid, num, pgs_start, pgs_stop, gseg_start, gseg_stop) VALUES ", $table);
   for(my $i = 0; $i < scalar(@exons); $i++)
   {
     my $exon = $exons[$i];
@@ -142,7 +146,7 @@ while(my($id, $entries) = each(%idfeats))
   printf($GPGS ";\n");
 
   next if(scalar(@introns) == 0);
-  printf($GPGS "INSERT INTO %s_good_pgs_introns (pgs_uid, num, gseg_start, gseg_stop) VALUES ", $table);
+  printf($GPGS "INSERT INTO gseg_%s_good_pgs_introns (pgs_uid, num, gseg_start, gseg_stop) VALUES ", $table);
   for(my $i = 0; $i < scalar(@introns); $i++)
   {
     my $intron = $introns[$i];
