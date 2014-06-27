@@ -25,6 +25,7 @@ Usage: xgdbvm-add-generic-track.sh [options] annot.gff3
     -o    output directory to which intermediate .sql files will be written;
           default is current directory
     -p    MySQL password, if different from system default
+    -r    specify length of random ID to autogen for each feature
     -s    directory containing xGDBvm scripts; default is current directory
     -t    name of the MySQL table to be created to contain these annotations;
           default is 'generic';
@@ -37,11 +38,12 @@ EOF
 DB="GDB001"
 OUTPATH="."
 PASSWORD="xgdb"
+RAND=0
 SCRIPTDIR="."
 TABLE="generic"
 USERNAME="gdbuser"
 DATATYPE="region"
-while getopts "d:ho:p:s:t:u:y:" OPTION
+while getopts "d:ho:p:r:s:t:u:y:" OPTION
 do
   case $OPTION in
     d)
@@ -56,6 +58,9 @@ do
       ;;
     p)
       PASSWORD=$OPTARG
+      ;;
+    r)
+      RAND=$OPTARG
       ;;
     s)
       SCRIPTDIR=$OPTARG
@@ -84,7 +89,7 @@ if [ ! -r $GFF3 ]; then
 fi
 
 # Create data to populate MySQL table
-$SCRIPTDIR/xGDB_generic_pgs_from_GFF3.pl -f $DATATYPE -p $TABLE -t $TABLE -o $OUTPATH $GFF3 
+$SCRIPTDIR/xGDB_generic_pgs_from_GFF3.pl -f $DATATYPE -p $TABLE -t $TABLE -o $OUTPATH -r $RAND $GFF3 
 if [ ! -s $ALGNSQL ]; then
   echo -e "error: error creating file '$ANNOTSQL'"
   exit 1

@@ -32,6 +32,9 @@ Usage: perl $0 [options] annot.gff3
     o|outdir=DIR:    directory in which to place output files; default is
                      current directory
     p|prefix=STRING: prefix for output files; default is 'track'
+    r|rand=INT:      for features without an ID, generate a random unique
+                     ID this many characters in length; default is to use
+                     \$seqid_\$start-\$stop as ID for features without an ID
     t|table=STRING:  prefix for MySQL tables to be populated; default is
                      'region'
 
@@ -40,6 +43,7 @@ Usage: perl $0 [options] annot.gff3
 
 my $outdir = ".";
 my $prefix = "track";
+my $rand = 0;
 my $table = "region";
 my $type = "region";
 GetOptions
@@ -48,6 +52,7 @@ GetOptions
   "h|help"     => sub{ print_usage(\*STDOUT); exit(0); },
   "o|outdir=s" => \$outdir,
   "p|prefix=s" => \$prefix,
+  "r|rand=i"   => \$rand,
   "t|table=s"  => \$table,
 );
 
@@ -86,8 +91,16 @@ while(my $line = <$GFF3>)
   }
 
   # Handle features without IDs (cannot be multifeatures)
-  $id = sprintf("%s_%lu-%lu", $fields[0], $fields[3], $fields[4]);
-  printf($MAIN "INSERT INTO %s (gi, acc, description) VALUES ('%s', '%s', '%s');\n", $table, $id, $id, $fields[8]);
+  my $acc = sprintf("%s_%lu-%lu", $fields[0], $fields[3], $fields[4]);
+  if($rand)
+  {
+    $id = rndStr(8, "a".."z", 0..9);
+  }
+  else
+  {
+    $id = $acc;
+  }
+  printf($MAIN "INSERT INTO %s (gi, acc, description) VALUES ('%s', '%s', '%s');\n", $table, $id, $acc, $fields[8]);
   printf($GPGS "INSERT INTO gseg_%s_good_pgs (gi, gseg_gi, l_pos, r_pos, pgs, pgs_lpos, pgs_rpos) ".
                "VALUES ('%s', '%s', %lu, %lu, '%lu %lu', 1, %lu);\n", $table, $id, $fields[0], $fields[3], $fields[4], $fields[3], $fields[4], $fields[4] - $fields[3] + 1);
   printf($GPGS "INSERT INTO gseg_%s_good_pgs_exons (pgs_uid, num, pgs_start, pgs_stop, gseg_start, gseg_stop) ".
@@ -163,3 +176,4 @@ printf($GPGS "COMMIT;\n");
 close($MAIN);
 close($GPGS);
 
+sub rndStr{ join'', @_[ map{ rand @_ } 1 .. shift ] }
